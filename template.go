@@ -1,29 +1,34 @@
 package rsw
 
 import (
-	"bytes"
 	"encoding/xml"
 	"errors"
-	"io/ioutil"
 	"net/url"
 )
 
-//PrefillTemplateReq represents PrefillTemplat method response.
-//	@todo MergeFields
+//PrefillTemplateReq represents arguments for Prefill Template API endpoint.
 type PrefillTemplateReq struct {
 	XMLName xml.Name `xml:"template"`
 
-	GUID             string    `xml:"guid"`
-	Action           string    `xml:"action"`
-	Subject          string    `xml:"subject,omitempty"`
-	Roles            []RoleReq `xml:"roles>role,omitempty"`
-	Description      string    `xml:"description,omitempty"`
-	ExpiresIn        string    `xml:"expires_in,omitempty"`
-	Tags             []TagReq  `xml:"tags>tag,omitempty"`
-	CallbackLocation string    `xml:"callback_location,omitempty"`
+	GUID             string          `xml:"guid"`
+	Action           string          `xml:"action"`
+	Subject          string          `xml:"subject,omitempty"`
+	Roles            []RoleReq       `xml:"roles>role,omitempty"`
+	Description      string          `xml:"description,omitempty"`
+	ExpiresIn        string          `xml:"expires_in,omitempty"`
+	Tags             []TagReq        `xml:"tags>tag,omitempty"`
+	MergeFields      []MergeFieldReq `xml:"merge_fields>merge_field,omitempty"`
+	CallbackLocation string          `xml:"callback_location,omitempty"`
 }
 
-//ListTemplatesResp represents ListTemplates method request parameters.
+//PrepackageTemplateReq represents arguments for Prepackage Template API endpoint.
+type PrepackageTemplateReq struct {
+	XMLName xml.Name `xml:"callback_location"`
+
+	CallbackLocation string `xml:",chardata"`
+}
+
+//ListTemplatesResp represents List Templates API endpoint response.
 type ListTemplatesResp struct {
 	Templates      []TemplateResp `xml:"templates>template"`
 	TotalTemplates int64          `xml:"total-templates"`
@@ -33,8 +38,7 @@ type ListTemplatesResp struct {
 }
 
 //TemplateResp represents Template entity.
-//@todo MergeFields
-//			Tags
+//Notice: Tags implementation work only like a mock.
 type TemplateResp struct {
 	Type            string `xml:"type"`
 	GUID            string `xml:"guid"`
@@ -42,28 +46,33 @@ type TemplateResp struct {
 	Filename        string `xml:"filename"`
 	Size            int64  `xml:"size"`
 	ContentType     string `xml:"content-type"`
-	PageCount       int64  `xml:"page-count"`
+	PageCount       string `xml:"page-count"`
 	Subject         string `xml:"subject"`
 	Message         string `xml:"message"`
 	Tags            string `xml:"tags"`
 	ProcessingState string `xml:"processing-state"`
 	ThumbnailURL    string `xml:"thumbnail-url"`
 
-	Roles         []RoleResp `xml:"roles>role"`
-	Pages         []PageResp `xml:"pages>page"`
-	RedirectToken string     `xml:"redirect-token"`
+	Roles         []RoleResp       `xml:"roles>role"`
+	Pages         []PageResp       `xml:"pages>page"`
+	MergeFields   []MergeFieldResp `xml:"merge-fields>merge-field"`
+	RedirectToken string           `xml:"redirect-token"`
 }
 
-//PrefillAndSendTemplateResp represents PrefillAndSendTemplate response.
+//PrefillAndSendTemplateResp represents Prefill Template (send) API endpoint response.
 type PrefillAndSendTemplateResp struct {
 	Status string `xml:"status"`
 	GUID   string `xml:"guid"`
 }
 
 //ListTemplates perform request to the same-name API endpoint.
-//List Template has some arguments (see documentation).
-//If you don't wanna send any params just send empty struct url.Values{}
-func (a RightSignatureAPI) ListTemplates(params url.Values) (resp ListTemplatesResp, err error) {
+//It has some optional arguments (see documentation).
+//p - optional and can be missed.
+func (a RightSignatureAPI) ListTemplates(p ...url.Values) (resp ListTemplatesResp, err error) {
+	params := url.Values{}
+	if len(p) > 0 {
+		params = p[0]
+	}
 
 	encodeParams := params.Encode()
 	if len(encodeParams) > 0 {
@@ -71,21 +80,9 @@ func (a RightSignatureAPI) ListTemplates(params url.Values) (resp ListTemplatesR
 	}
 
 	url := BaseURL + "/templates.xml" + encodeParams
-	method := "GET"
+	method := MethodGet
 
-	req, err := a.newRequest(method, url, nil)
-	if err != nil {
-		return
-	}
-
-	httpResp, err := a.do(req)
-	if err != nil {
-		return
-	}
-
-	defer httpResp.Body.Close()
-
-	body, err := ioutil.ReadAll(httpResp.Body)
+	body, err := a.Send(method, url, nil)
 	if err != nil {
 		return
 	}
@@ -94,30 +91,27 @@ func (a RightSignatureAPI) ListTemplates(params url.Values) (resp ListTemplatesR
 	return
 }
 
-//	@todo skiped argument callback_location
 //PrepackageTemplate perform request to the same-name API endpoint.
-func (a RightSignatureAPI) PrepackageTemplate(guid string) (resp TemplateResp, err error) {
+//p - optional and can be missed.
+func (a RightSignatureAPI) PrepackageTemplate(guid string, p ...PrepackageTemplateReq) (resp TemplateResp, err error) {
+	var data []byte
+	if len(p) > 0 {
+		data, err = xml.Marshal(p[0])
+		if err != nil {
+			return
+		}
+	}
+
 	url := BaseURL + "/templates/" + guid + "/prepackage.xml"
-	method := "POST"
+	method := MethodPost
 
-	req, err := a.newRequest(method, url, nil)
-	if err != nil {
-		return
-	}
-
-	httpResp, err := a.do(req)
-	if err != nil {
-		return
-	}
-
-	defer httpResp.Body.Close()
-
-	body, err := ioutil.ReadAll(httpResp.Body)
+	body, err := a.Send(method, url, data)
 	if err != nil {
 		return
 	}
 
 	err = xml.Unmarshal(body, &resp)
+
 	return
 }
 
@@ -133,7 +127,15 @@ func (a RightSignatureAPI) PrefillTemplate(p PrefillTemplateReq) (resp TemplateR
 		return
 	}
 
-	body, err := a.prefillTemplateBody(p)
+	url := BaseURL + "/templates.xml"
+	method := MethodPost
+
+	xmlData, err := xml.Marshal(p)
+	if err != nil {
+		return
+	}
+
+	body, err := a.Send(method, url, xmlData)
 	if err != nil {
 		return
 	}
@@ -154,39 +156,20 @@ func (a RightSignatureAPI) PrefillAndSendTemplate(p PrefillTemplateReq) (resp Pr
 		return
 	}
 
-	body, err := a.prefillTemplateBody(p)
-	if err != nil {
-		return
-	}
-
-	err = xml.Unmarshal(body, &resp)
-	return
-}
-
-//prefillTemplateBody perform request to Prefill Template API endpoint and returns the request body.
-func (a RightSignatureAPI) prefillTemplateBody(p PrefillTemplateReq) (body []byte, err error) {
 	url := BaseURL + "/templates.xml"
-	method := "POST"
+	method := MethodPost
 
 	xmlData, err := xml.Marshal(p)
 	if err != nil {
 		return
 	}
-	xmlData = append([]byte(xml.Header), xmlData...)
 
-	req, err := a.newRequest(method, url, bytes.NewBuffer(xmlData))
+	body, err := a.Send(method, url, xmlData)
 	if err != nil {
 		return
 	}
 
-	httpResp, err := a.do(req)
-	if err != nil {
-		return
-	}
-
-	defer httpResp.Body.Close()
-
-	body, err = ioutil.ReadAll(httpResp.Body)
+	err = xml.Unmarshal(body, &resp)
 	return
 }
 
