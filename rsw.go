@@ -103,7 +103,7 @@ func (a RightSignatureAPI) Send(method, url string, reqData []byte) (respData []
 	req.Header.Add("api-token", a.apiToken)
 	req.Header.Add("Content-Type", "application/xml")
 
-	client := &http.Client{}
+	client := http.DefaultClient
 
 	httpResp, err := client.Do(req)
 	if err != nil {
