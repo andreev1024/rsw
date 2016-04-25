@@ -7,10 +7,14 @@ Package **rsw** implements a wrapper for [RightSignature API](http://rightsignat
 
 ### API endpoints
 Current version support following API endpoints:
+
 #### Templates
 * List Templates
 * Prepackage Template
 * Prefill Template
+
+#### Documents
+* Document Details
 
 ### Example
 ```

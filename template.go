@@ -6,6 +6,28 @@ import (
 	"net/url"
 )
 
+//Template represents Template entity.
+//Notice: Tags implementation work only like a mock.
+type Template struct {
+	Type            string `xml:"type"`
+	GUID            string `xml:"guid"`
+	CreatedAt       string `xml:"created-at"`
+	Filename        string `xml:"filename"`
+	Size            int64  `xml:"size"`
+	ContentType     string `xml:"content-type"`
+	PageCount       string `xml:"page-count"`
+	Subject         string `xml:"subject"`
+	Message         string `xml:"message"`
+	Tags            string `xml:"tags"`
+	ProcessingState string `xml:"processing-state"`
+	ThumbnailURL    string `xml:"thumbnail-url"`
+
+	Roles         []Role       `xml:"roles>role"`
+	Pages         []Page       `xml:"pages>page"`
+	MergeFields   []MergeField `xml:"merge-fields>merge-field"`
+	RedirectToken string       `xml:"redirect-token"`
+}
+
 //PrefillTemplateReq represents arguments for Prefill Template API endpoint.
 type PrefillTemplateReq struct {
 	XMLName xml.Name `xml:"template"`
@@ -28,41 +50,19 @@ type PrepackageTemplateReq struct {
 	CallbackLocation string `xml:",chardata"`
 }
 
-//ListTemplatesResp represents List Templates API endpoint response.
-type ListTemplatesResp struct {
-	Templates      []TemplateResp `xml:"templates>template"`
-	TotalTemplates int64          `xml:"total-templates"`
-	TotalPages     int64          `xml:"total-pages"`
-	PerPage        int64          `xml:"per-page"`
-	CurrentPage    int64          `xml:"current-page"`
-}
-
-//TemplateResp represents Template entity.
-//Notice: Tags implementation work only like a mock.
-type TemplateResp struct {
-	Type            string `xml:"type"`
-	GUID            string `xml:"guid"`
-	CreatedAt       string `xml:"created-at"`
-	Filename        string `xml:"filename"`
-	Size            int64  `xml:"size"`
-	ContentType     string `xml:"content-type"`
-	PageCount       string `xml:"page-count"`
-	Subject         string `xml:"subject"`
-	Message         string `xml:"message"`
-	Tags            string `xml:"tags"`
-	ProcessingState string `xml:"processing-state"`
-	ThumbnailURL    string `xml:"thumbnail-url"`
-
-	Roles         []RoleResp       `xml:"roles>role"`
-	Pages         []PageResp       `xml:"pages>page"`
-	MergeFields   []MergeFieldResp `xml:"merge-fields>merge-field"`
-	RedirectToken string           `xml:"redirect-token"`
-}
-
 //PrefillAndSendTemplateResp represents Prefill Template (send) API endpoint response.
 type PrefillAndSendTemplateResp struct {
 	Status string `xml:"status"`
 	GUID   string `xml:"guid"`
+}
+
+//ListTemplatesResp represents List Templates API endpoint response.
+type ListTemplatesResp struct {
+	Templates      []Template `xml:"templates>template"`
+	TotalTemplates int64      `xml:"total-templates"`
+	TotalPages     int64      `xml:"total-pages"`
+	PerPage        int64      `xml:"per-page"`
+	CurrentPage    int64      `xml:"current-page"`
 }
 
 //ListTemplates perform request to the same-name API endpoint.
@@ -93,7 +93,7 @@ func (a RightSignatureAPI) ListTemplates(p ...url.Values) (resp ListTemplatesRes
 
 //PrepackageTemplate perform request to the same-name API endpoint.
 //p - optional and can be missed.
-func (a RightSignatureAPI) PrepackageTemplate(guid string, p ...PrepackageTemplateReq) (resp TemplateResp, err error) {
+func (a RightSignatureAPI) PrepackageTemplate(guid string, p ...PrepackageTemplateReq) (resp Template, err error) {
 	var data []byte
 	if len(p) > 0 {
 		data, err = xml.Marshal(p[0])
@@ -111,12 +111,11 @@ func (a RightSignatureAPI) PrepackageTemplate(guid string, p ...PrepackageTempla
 	}
 
 	err = xml.Unmarshal(body, &resp)
-
 	return
 }
 
 //PrefillTemplate perform 'prefill' action request to the Prefill Template API endpoint.
-func (a RightSignatureAPI) PrefillTemplate(p PrefillTemplateReq) (resp TemplateResp, err error) {
+func (a RightSignatureAPI) PrefillTemplate(p PrefillTemplateReq) (resp Template, err error) {
 	err = a.prefillValidation(p)
 	if err != nil {
 		return

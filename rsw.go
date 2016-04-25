@@ -53,8 +53,8 @@ type MergeFieldReq struct {
 	RoleID   string `xml:"merge_field_id,attr,omitempty"`
 }
 
-//RoleResp represents Role's data from response.
-type RoleResp struct {
+//Role represents Role's data getting from response.
+type Role struct {
 	Role           string `xml:"role"`
 	Name           string `xml:"name"`
 	MustSign       string `xml:"must-sign"`
@@ -62,22 +62,22 @@ type RoleResp struct {
 	IsSender       string `xml:"is-sender"`
 }
 
-//PageResp represents Page's data from response.
-type PageResp struct {
+//Page represents Page's data getting from response.
+type Page struct {
 	PageNumber               int64  `xml:"page-number"`
 	OriginalTemplateGUID     string `xml:"original-template-guid"`
 	OriginalTemplateFilename string `xml:"original-template-filename"`
 }
 
-//MergeFieldResp represents Marge field's data from response.
-type MergeFieldResp struct {
+//MergeField represents Marge field's data getting from response.
+type MergeField struct {
 	ID   string `xml:"id"`
 	Name string `xml:"name"`
 	Page int64  `xml:"page"`
 }
 
-//ErrorResp represents Error's data from response.
-type ErrorResp struct {
+//Error represents Error's data getting from response.
+type Error struct {
 	Message string `xml:"message"`
 }
 
@@ -115,7 +115,7 @@ func (a RightSignatureAPI) Send(method, url string, reqData []byte) (respData []
 	respData, err = ioutil.ReadAll(httpResp.Body)
 
 	if httpResp.StatusCode != http.StatusOK {
-		errorResp := ErrorResp{}
+		errorResp := Error{}
 		err = xml.Unmarshal(respData, &errorResp)
 		if err != nil {
 			return
